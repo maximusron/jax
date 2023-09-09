@@ -32,6 +32,7 @@ from jax._src import compiler
 from jax._src import monitoring
 from jax._src import test_util as jtu
 from jax._src import xla_bridge
+from jax._src.config import enable_compilation_cache
 from jax._src.config import persistent_cache_min_compile_time_secs
 from jax._src.config import raise_persistent_cache_errors
 from jax._src.config import use_original_compilation_cache_key_generation
@@ -62,6 +63,7 @@ def increment_event_count(event):
 
 
 @jtu.with_config(
+    jax_enable_compilation_cache=True,
     jax_raise_persistent_cache_errors=True,
     jax_persistent_cache_min_compile_time_secs=0,
 )
@@ -229,7 +231,7 @@ class CompilationCacheTest(jtu.JaxTestCase):
       f = jit(lambda x: x * x)
 
       with raise_persistent_cache_errors(False), mock.patch.object(
-          cc._cache.__class__, "put"
+          cc._get_cache().__class__, "put"
       ) as mock_put, warnings.catch_warnings(record=True) as w:
         mock_put.side_effect = RuntimeError("test error")
         self.assertEqual(f(2), 4)
@@ -248,7 +250,7 @@ class CompilationCacheTest(jtu.JaxTestCase):
       f = jit(lambda x: x * x)
 
       with raise_persistent_cache_errors(False), mock.patch.object(
-          cc._cache.__class__, "get"
+          cc._get_cache().__class__, "get"
       ) as mock_get, warnings.catch_warnings(record=True) as w:
         mock_get.side_effect = RuntimeError("test error")
         self.assertEqual(f(2), 4)
@@ -375,6 +377,44 @@ class CompilationCacheTest(jtu.JaxTestCase):
         _counts["/jax/compilation_cache/cache_hits_original"]
         - previous_counts["/jax/compilation_cache/cache_hits_original"],
         1)
+
+
+@jtu.with_config(
+    jax_enable_compilation_cache=False,
+    jax_persistent_cache_min_compile_time_secs=0,
+)
+class CompilationCacheDisabledTest(jtu.JaxTestCase):
+
+  def setUp(self):
+    super().setUp()
+
+    # Reset cache if already initialized by JaxTestCase
+    if cc.is_initialized():
+      cc.reset_cache()
+
+  def tearDown(self):
+    if cc.is_initialized():
+      cc.reset_cache()
+    super().tearDown()
+
+  # If the cache is disabled, there should be no files in the cache directory.
+  # A call to initialize_cache() does not affect this.
+  def test_jit(self):
+    # Sequence of flag settings for config.jax_enable_compilation_cache:
+    # 1. Flag is disabled by @jtu.with_config() above.
+    # 2. Flag is enabled by JaxTestCase for some test configs
+    #    (see test_util.py).
+    # We need the flag disabled for this test, so disable it below.
+    with (
+        tempfile.TemporaryDirectory() as tmpdir,
+        enable_compilation_cache(False),
+    ):
+      cc.initialize_cache(tmpdir)
+      f = jit(lambda x: x * x)
+      f(1)
+      files_in_directory = len(os.listdir(tmpdir))
+      self.assertEqual(files_in_directory, 0)
+
 
 if __name__ == "__main__":
   absltest.main(testLoader=jtu.JaxTestLoader())

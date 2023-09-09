@@ -50,6 +50,7 @@ from jax._src import monitoring
 from jax._src import stages
 from jax._src.interpreters import pxla
 from jax._src.config import (bool_env, config,
+                             enable_compilation_cache,
                              raise_persistent_cache_errors,
                              persistent_cache_min_compile_time_secs)
 from jax._src.numpy.util import promote_dtypes, promote_dtypes_inexact
@@ -915,6 +916,7 @@ class JaxTestCase(parameterized.TestCase):
     if TEST_WITH_PERSISTENT_COMPILATION_CACHE.value:
       cls._compilation_cache_exit_stack = ExitStack()
       stack = cls._compilation_cache_exit_stack
+      stack.enter_context(enable_compilation_cache(True))
       stack.enter_context(raise_persistent_cache_errors(True))
       stack.enter_context(persistent_cache_min_compile_time_secs(0))
 
