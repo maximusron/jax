@@ -227,7 +227,10 @@ def split_spectrum(H, n, split_point, V0=None):
   if V0 is not None:
     V_minus = jnp.dot(V0, V_minus)
     V_plus = jnp.dot(V0, V_plus)
-  return H_minus, V_minus, H_plus, V_plus, rank
+  if swap:
+    return H_plus, V_plus, H_minus, V_minus, rank
+  else:
+    return H_minus, V_minus, H_plus, V_plus, rank
 
 
 # To help understand the iterative version of the algorithm, the original
