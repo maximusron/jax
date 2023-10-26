@@ -26,3 +26,9 @@ JAX, such as `PIX`_.
 from jax._src.cppyy_utils.matmul import (
   eigen_mul as eigen_mul
 )
+
+from jax._src.cppyy_utils.stdmul import (
+  std_vecmul as std_vecmul
+)
+
+  
